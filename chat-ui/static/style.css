@@ -2521,3 +2521,89 @@ body {
   }
 }
 
+
+
+/* ============================================================
+   REDESIGN PATCH — dopisane, nic powyzej nie zostalo ruszone
+   (font, ikony zamiast emoji, quick-chips, mapa siecowa w tle,
+   status jako pigulka, brakujace style .finding-card/.finding-head)
+   ============================================================ */
+
+:root{ --font-sans:'IBM Plex Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+
+.tool-icon{ flex-shrink:0; margin-top:2px; color:var(--text-muted); }
+
+.quick-chips-row{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:22px; }
+.quick-chip{
+  background:var(--surface-2); border:1px solid var(--border); color:var(--text-muted);
+  border-radius:999px; padding:8px 14px; font-size:12px; font-family:var(--font-sans);
+  cursor:pointer; transition:border-color .15s ease, color .15s ease, background .15s ease;
+}
+.quick-chip:hover{ border-color:var(--accent); color:var(--text); background:var(--surface-3); }
+
+.empty-mark{
+  width:56px; height:56px; margin:0 auto 20px; border-radius:16px;
+  background:var(--surface-2); border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center; color:var(--accent);
+  font-size:0;
+}
+
+.pulse-idle{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:5px 12px 5px 9px; background:var(--surface-2);
+  border:1px solid var(--border); border-radius:999px;
+}
+.pulse-idle::before{ content:''; width:6px; height:6px; border-radius:50%; background:var(--text-dim); flex-shrink:0; }
+
+.finding-card{ margin:14px 0; padding:14px 16px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); }
+.finding-high{ border-color:rgba(240,71,61,.35); background:rgba(240,71,61,.07); }
+.finding-medium{ border-color:rgba(242,169,59,.35); background:rgba(242,169,59,.07); }
+.finding-low{ border-color:rgba(47,191,113,.35); background:rgba(47,191,113,.07); }
+.finding-head{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.finding-label{ font-family:var(--font-mono); font-size:10px; font-weight:700; letter-spacing:.06em; color:var(--text-muted); }
+.finding-title{ font-size:13px; font-weight:600; color:var(--text); }
+.finding-body{ font-size:12.5px; line-height:1.6; color:var(--text-muted); }
+
+.finding-icon{ display:inline-flex; }
+.finding-icon::before{ content:''; width:9px; height:9px; border-radius:50%; }
+.finding-icon-high::before{ background:var(--risk-high); }
+.finding-icon-medium::before{ background:var(--risk-medium); }
+.finding-icon-low::before{ background:var(--risk-low); }
+
+.finding-list-icon{ display:flex; align-items:center; justify-content:center; }
+.finding-list-icon::before{ content:''; width:7px; height:7px; border-radius:50%; }
+.finding-list-icon-critical::before{ background:#ef4444; }
+.finding-list-icon-high::before{ background:var(--risk-high); }
+.finding-list-icon-medium::before{ background:var(--risk-medium); }
+.finding-list-icon-low::before{ background:var(--risk-low); }
+
+.finding-count-dot{ width:7px; height:7px; border-radius:50%; display:inline-block; }
+.finding-count-critical .finding-count-dot{ background:#ef4444; }
+.finding-count-high .finding-count-dot{ background:var(--risk-high); }
+.finding-count-medium .finding-count-dot{ background:var(--risk-medium); }
+.finding-count-low .finding-count-dot{ background:var(--risk-low); }
+
+.main{ position:relative; }
+.map-layer{ position:absolute; inset:0; z-index:1; overflow:hidden; pointer-events:none; }
+.map-layer svg{ width:100%; height:100%; display:block; }
+.map-dots{ fill:var(--text-dim); opacity:.28; }
+.map-arcs{ fill:none; stroke:var(--accent); stroke-width:1.3; opacity:.4; }
+.map-arc{ stroke-dasharray:5 11; animation:mapFlow 3.6s linear infinite; }
+.map-endpoint{ fill:var(--accent); opacity:.85; animation:mapBlink 2.4s ease-in-out infinite; }
+.map-server-ring{ fill:none; stroke:var(--accent); stroke-width:1.6; opacity:.8; transform-box:fill-box; transform-origin:center; animation:mapRing 2.6s ease-out infinite; }
+.map-server-ring-delay{ animation-delay:1.3s; }
+.map-server-dot{ fill:var(--accent); }
+.map-vignette{
+  position:absolute; inset:0;
+  background:radial-gradient(ellipse 700px 480px at 50% 42%, rgba(11,13,17,.94) 0%, rgba(11,13,17,.72) 45%, rgba(11,13,17,.35) 75%, rgba(11,13,17,0) 100%);
+}
+
+@keyframes mapFlow{ to{ stroke-dashoffset:-260; } }
+@keyframes mapRing{ 0%{ transform:scale(.5); opacity:.5; } 100%{ transform:scale(3.2); opacity:0; } }
+@keyframes mapBlink{ 0%,100%{ opacity:.5; } 50%{ opacity:1; } }
+
+.pulse-bar, .thread, .composer, .admin-auth-panel{ position:relative; z-index:2; }
+
+@media (prefers-reduced-motion: reduce){
+  .map-arc, .map-endpoint, .map-server-ring{ animation:none; }
+}

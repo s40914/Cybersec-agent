@@ -27,7 +27,7 @@ def process_finding_rules(
                 match = re.match(r"^(\d+)/(tcp|udp)\s+open\s+(\S+)", line_item.strip())
                 if match:
                     port, proto, service = match.group(1), match.group(2), match.group(3)
-                    title = f"Otarty port {port}/{proto} ({service})"
+                    title = f"Otwarty port {port}/{proto} ({service})"
                     description = f"Skaner Nmap wykrył otwarty port {port}/{proto} z uruchomioną usługą: {service} na celu {raw.target}."
                     builder.create_finding(
                         target=raw.target,

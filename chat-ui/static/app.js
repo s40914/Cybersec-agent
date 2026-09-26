@@ -109,16 +109,28 @@
   function saveThreadId(id) {
     try { sessionStorage.setItem("cybersec_thread_id", id); } catch (e) {}
   }
+  const QUICK_COMMANDS = [
+    "sprawdź firewall i fail2ban",
+    "zrób pełny audyt bezpieczeństwa",
+    "przeprowadź skan nmap na localhost",
+  ];
+
   function newSession() {
     threadId = generateUUID();
     saveThreadId(threadId);
     threadIdEl.textContent = threadId.slice(0, 8) + "…";
     threadEl.innerHTML = `
       <div class="empty-state">
-        <div class="empty-mark">🛡</div>
+        <div class="empty-mark"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
         <div class="empty-title">Gotowy do audytu</div>
-        <div class="empty-sub">Wybierz narzędzia po lewej (opcjonalnie) i zadaj pytanie o bezpieczeństwo serwera.</div>
+        <div class="empty-sub">Wybierz narzędzia po lewej albo zacznij od jednego z poniższych — cel zostanie wykryty automatycznie z treści wiadomości.</div>
+        <div class="quick-chips-row">
+          ${QUICK_COMMANDS.map((c) => `<button type="button" class="quick-chip" data-cmd="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join("")}
+        </div>
       </div>`;
+    threadEl.querySelectorAll(".quick-chip").forEach((btn) => {
+      btn.addEventListener("click", () => sendMessage(btn.dataset.cmd));
+    });
     resetPulse();
   }
   async function resumeSession() {
@@ -178,6 +190,50 @@
   }
 
   newSessionBtn.addEventListener("click", newSession);
+
+  const TOOL_LABELS = {
+    check_firewall: { label: "Zapora sieciowa (UFW)", icon: "shield" },
+    check_fail2ban: { label: "Ochrona przed brute-force (fail2ban)", icon: "alert" },
+    check_ssh: { label: "Konfiguracja SSH", icon: "lock" },
+    check_updates: { label: "Aktualizacje systemowe", icon: "check" },
+    check_local_ports: { label: "Otwarte porty lokalne", icon: "scan" },
+    list_services: { label: "Uslugi systemowe", icon: "list" },
+    list_users: { label: "Konta uzytkownikow", icon: "list" },
+    nmap_scan_ip: { label: "Skaner portow (Nmap)", icon: "scan" },
+    nmap_stealth_scan: { label: "Skan ukryty (Nmap)", icon: "scan" },
+    nmap_vuln_scan: { label: "Skan podatnosci (Nmap)", icon: "bug" },
+    nikto_scan: { label: "Skaner podatnosci WWW (Nikto)", icon: "bug" },
+    nuclei_scan: { label: "Skaner podatnosci (Nuclei)", icon: "bug" },
+    testssl_scan: { label: "Audyt TLS/SSL", icon: "lock" },
+    whatweb_scan: { label: "Rozpoznanie technologii WWW", icon: "search" },
+    wafw00f_scan: { label: "Wykrywanie WAF", icon: "shield" },
+    enum4linux_scan: { label: "Enumeracja SMB", icon: "search" },
+    hydra_ftp: { label: "Test sily hasel (FTP)", icon: "lock" },
+    certipy_find: { label: "Audyt AD CS (Certipy)", icon: "search" },
+    coercer_coerce: { label: "Wymuszenie uwierzytelnienia (Coercer)", icon: "bug" },
+    ntlmrelayx_listen: { label: "Przekaznik NTLM (ntlmrelayx)", icon: "bug" },
+  };
+
+  const TOOL_ICONS = {
+    shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>',
+    lock: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path>',
+    alert: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>',
+    check: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>',
+    list: '<line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>',
+    scan: '<circle cx="12" cy="12" r="9"></circle><line x1="21" y1="12" x2="18" y2="12"></line><line x1="6" y1="12" x2="3" y2="12"></line><line x1="12" y1="6" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="18"></line>',
+    bug: '<circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>',
+    search: '<circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>',
+  };
+
+  function humanizeToolName(name) {
+    return name.replace(/_/g, " ").replace(/\w/g, (c) => c.toUpperCase());
+  }
+
+  function toolIconSvg(name) {
+    const key = (TOOL_LABELS[name] && TOOL_LABELS[name].icon) || "scan";
+    const path = TOOL_ICONS[key] || TOOL_ICONS.scan;
+    return `<svg class="tool-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+  }
 
   async function loadTools() {
     try {
@@ -307,10 +363,12 @@
       const row = document.createElement("label");
       row.className = "tool-item";
       const shortDesc = t.description.split("\n")[0].trim();
+      const displayName = (TOOL_LABELS[t.name] && TOOL_LABELS[t.name].label) || humanizeToolName(t.name);
       row.innerHTML = `
         <input type="checkbox" data-tool="${t.name}">
+        ${toolIconSvg(t.name)}
         <span>
-          <span class="tool-name">${escapeHtml(t.name)}</span>
+          <span class="tool-name">${escapeHtml(displayName)}</span>
           <span class="tool-desc">${escapeHtml(shortDesc)}</span>
         </span>
         <div class="tool-params hidden"></div>`;
@@ -557,7 +615,6 @@
     return div.querySelector(".msg-bubble");
   }
 
-  const FINDING_ICON = { high: "\ud83d\udd34", medium: "\ud83d\udfe0", low: "\ud83d\udfe2" };
   const FINDING_LABEL = { high: "KRYTYCZNE", medium: "OSTRZEŻENIE", low: "INFO" };
 
   function escapeHtml(str) {
@@ -579,8 +636,7 @@
       const before = text.slice(lastIndex, match.index);
       out += window.marked ? window.marked.parse(before) : before;
 
-      const cls = FINDING_ICON[type] ? type : "medium";
-      const icon = FINDING_ICON[cls];
+      const cls = FINDING_LABEL[type] ? type : "medium";
       const label = FINDING_LABEL[cls];
       const bodyHtml = body.trim()
         ? (window.marked ? window.marked.parse(body.trim()) : escapeHtml(body.trim()))
@@ -589,7 +645,7 @@
       out += `
         <div class="finding-card finding-${cls}">
           <div class="finding-head">
-            <span class="finding-icon">${icon}</span>
+            <span class="finding-icon finding-icon-${cls}"></span>
             <span class="finding-label">${label}</span>
             <span class="finding-title">${escapeHtml(title)}</span>
           </div>
@@ -900,16 +956,16 @@
 
     findingsSummaryEl.innerHTML = `
       <div class="finding-count finding-count-critical">
-        <span>🔴</span><strong>${counts.critical}</strong><small>CRITICAL</small>
+        <span class="finding-count-dot"></span><strong>${counts.critical}</strong><small>CRITICAL</small>
       </div>
       <div class="finding-count finding-count-high">
-        <span>🟠</span><strong>${counts.high}</strong><small>HIGH</small>
+        <span class="finding-count-dot"></span><strong>${counts.high}</strong><small>HIGH</small>
       </div>
       <div class="finding-count finding-count-medium">
-        <span>🟡</span><strong>${counts.medium}</strong><small>MEDIUM</small>
+        <span class="finding-count-dot"></span><strong>${counts.medium}</strong><small>MEDIUM</small>
       </div>
       <div class="finding-count finding-count-low">
-        <span>🟢</span><strong>${counts.low}</strong><small>LOW</small>
+        <span class="finding-count-dot"></span><strong>${counts.low}</strong><small>LOW</small>
       </div>
     `;
   }
@@ -938,7 +994,7 @@
           type="button"
           class="finding-list-item finding-list-${severity}"
           data-finding-index="${index}">
-          <span class="finding-list-icon">${findingSeverityIcon(severity)}</span>
+          <span class="finding-list-icon finding-list-icon-${severity}"></span>
           <span class="finding-list-main">
             <span class="finding-list-id">${escapeHtml(String(id))}</span>
             <span class="finding-list-title">${escapeHtml(String(title))}</span>
@@ -1127,7 +1183,7 @@
 
     findingDetailContent.innerHTML = `
       <div class="finding-detail-severity finding-detail-severity-${severity}">
-        ${findingSeverityIcon(severity)}
+        <span class="finding-list-icon finding-list-icon-${severity}"></span>
         <strong>${findingSeverityLabel(severity)}</strong>
       </div>
 
@@ -1191,6 +1247,66 @@
     }
   });
 
+  function initNetworkMap() {
+    const svg = document.getElementById("map-svg");
+    if (!svg) return;
+
+    const continents = [
+      { cx: 170, cy: 150, rx: 85, ry: 75 },
+      { cx: 165, cy: 245, rx: 32, ry: 22 },
+      { cx: 235, cy: 350, rx: 52, ry: 85 },
+      { cx: 500, cy: 110, rx: 42, ry: 38 },
+      { cx: 510, cy: 270, rx: 58, ry: 108 },
+      { cx: 700, cy: 140, rx: 138, ry: 92 },
+      { cx: 650, cy: 250, rx: 34, ry: 34 },
+      { cx: 730, cy: 270, rx: 34, ry: 28 },
+      { cx: 830, cy: 370, rx: 54, ry: 38 },
+    ];
+
+    let dots = "";
+    const step = 13;
+    for (let x = 40; x < 960; x += step) {
+      for (let y = 30; y < 470; y += step) {
+        for (let i = 0; i < continents.length; i++) {
+          const c = continents[i];
+          const dx = (x - c.cx) / c.rx;
+          const dy = (y - c.cy) / c.ry;
+          if (dx * dx + dy * dy <= 1) {
+            const h = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+            const frac = h - Math.floor(h);
+            if (frac > 0.14) {
+              dots += `<circle cx="${x}" cy="${y}" r="${(1.2 + frac * 0.7).toFixed(2)}"></circle>`;
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    const server = { x: 508, y: 102 };
+    function makeArc(tx, ty) {
+      const mx = (server.x + tx) / 2;
+      const my = (server.y + ty) / 2;
+      const dist = Math.hypot(tx - server.x, ty - server.y);
+      const lift = Math.min(140, dist * 0.35);
+      return { d: `M ${server.x} ${server.y} Q ${mx} ${my - lift} ${tx} ${ty}`, tx, ty };
+    }
+    const arcs = [makeArc(170, 150), makeArc(235, 350), makeArc(650, 250), makeArc(830, 370)];
+
+    const arcPaths = arcs.map((a) => `<path class="map-arc" d="${a.d}"></path>`).join("");
+    const arcDots = arcs.map((a) => `<circle class="map-endpoint" cx="${a.tx}" cy="${a.ty}" r="3"></circle>`).join("");
+
+    svg.innerHTML = `
+      <g class="map-dots">${dots}</g>
+      <g class="map-arcs">${arcPaths}</g>
+      ${arcDots}
+      <circle class="map-server-ring" cx="${server.x}" cy="${server.y}" r="9"></circle>
+      <circle class="map-server-ring map-server-ring-delay" cx="${server.x}" cy="${server.y}" r="9"></circle>
+      <circle class="map-server-dot" cx="${server.x}" cy="${server.y}" r="5"></circle>
+    `;
+  }
+
+  initNetworkMap();
   resumeSession();
   loadTools();
   loadModels();
