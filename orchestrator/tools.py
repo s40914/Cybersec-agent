@@ -76,7 +76,9 @@ def make_tools():
 
     @tool
     def check_docker() -> str:
-        """Zwraca listę działających kontenerów Docker."""
+        """Zwraca listę działających kontenerów Docker, w tym status pojedynczych
+        usług jak Wazuh czy Suricata jeśli działają jako kontenery. Użyj tego do
+        szybkiego sprawdzenia czy konkretna usługa/kontener działa."""
         return json.dumps(_call_admin_agent("check_docker"), ensure_ascii=False)
 
     @tool
@@ -99,8 +101,11 @@ def make_tools():
 
     @tool
     def full_audit() -> str:
-        """Wykonuje pełny audyt bezpieczeństwa naraz (firewall, fail2ban, ssh, users,
-        updates, docker, services, wazuh, suricata) - jedno wywołanie zamiast wielu osobnych."""
+        """Wykonuje PEŁNY audyt bezpieczeństwa (firewall, fail2ban, ssh, users,
+        updates, docker, services, lynis) - jedno długie wywołanie zamiast wielu
+        osobnych. Używaj TYLKO gdy użytkownik prosi o pełny/kompleksowy audyt
+        całego systemu. Dla pytania o pojedynczą usługę lub kontener (np. "czy X
+        działa") użyj check_docker lub list_services zamiast tego narzędzia."""
         return json.dumps(_call_admin_agent("full_audit"), ensure_ascii=False)
 
     return [
