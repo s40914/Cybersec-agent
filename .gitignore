@@ -21,3 +21,4 @@ data/sast_artifacts/
 orchestrator/re_artifacts/
 orchestrator/sast_artifacts/
 data/*.db
+cookies.txt
