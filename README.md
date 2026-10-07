@@ -1,106 +1,108 @@
 # Cybersec Agent
 
-System wspomagający audyt bezpieczeństwa oraz testy penetracyjne (pentesting) sieci lokalnej, oparty o wieloagentowy potok (pipeline) wykorzystujący lokalnie hostowane modele językowe (LLM).
+> 🇬🇧 English | [🇵🇱 Polski](README.pl.md)
 
-> **Status:** projekt rozwojowy / portfolio. Zbudowany i testowany na własnej infrastrukturze (Docker + lokalne modele Ollama). Lista znanych ograniczeń i planowanych prac — patrz sekcja [Znane ograniczenia i dalsze prace](#znane-ograniczenia-i-dalsze-prace).
+**Multi-agent LLM pipeline for local-network security auditing and penetration testing, built on a deterministic-first architecture that keeps all technical facts out of the models' hands.**
 
----
-
-## Cel i założenia projektu
-
-Celem projektu było zaprojektowanie i wdrożenie systemu wspomagającego audyt bezpieczeństwa oraz testy penetracyjne sieci lokalnej, opartego o wieloagentowy potok przetwarzania (pipeline) wykorzystujący lokalnie hostowane modele językowe (LLM).
-
-Głównym założeniem architektonicznym jest zasada **„deterministic-first”**: wszystkie fakty techniczne (liczby, nazwy, wersje oprogramowania, wyniki narzędzi diagnostycznych) są wyodrębniane z danych surowych przez deterministyczny kod w języku Python, natomiast modele językowe pełnią wyłącznie rolę redakcyjną — porządkują, opisują i formułują rekomendacje, nie interpretując samodzielnie danych liczbowych.
-
-Podejście to eliminuje klasę błędów wynikającą z udokumentowanej tendencji modeli językowych do pomijania, zniekształcania lub zmyślania fragmentów danych przy przetwarzaniu długich, technicznych wyników narzędzi bezpieczeństwa (tzw. halucynacje). Zjawisko to zostało w projekcie potwierdzone empirycznie i wielokrotnie — patrz [Walka z halucynacjami LLM](#walka-z-halucynacjami-llm).
+> **Status:** development / portfolio project. Built and tested on self-hosted infrastructure (Docker + local Ollama models).
 
 ---
 
-## Architektura systemu
+## Overview
 
-![Diagram architektury](docs/architektura.png)
+A system that assists with security auditing and penetration testing of a local network, orchestrating a pipeline of locally hosted large language models.
 
-- **Interfejs użytkownika (chat-ui)** — panel czatu, wybór narzędzi i trybu (audyt / pentesting), panel findingów
-- **Orchestrator (FastAPI + LangGraph)** — logika przepływu, ok. 20 deterministycznych parserów danych, budowa promptów, kaskadowy potok modeli
-- **Pentest-agent** — wykonywanie narzędzi ofensywnych w izolowanym środowisku, z centralnym rejestrem narzędzi i walidacją celu (allowlist)
-- **Admin-agent** — usługa systemowa na hoście, diagnostyka przez ograniczony (whitelistowany) dostęp do poleceń administracyjnych (`sudo`)
-- **Warstwa Evidence/Findings** — model danych i magazyn trwały dla ustaleń bezpieczeństwa, z pełnym cyklem życia: wykrycie → walidacja → ocena ryzyka → retest
-- **Internal Sensor** — pasywne wykrywanie zasobów (hostów) w sieci lokalnej
-- **Potok wieloetapowy** — 1 model wykonujący narzędzia → N niezależnych modeli piszących szkice raportu → 1 model-recenzent (*critic*) porównujący szkice z danymi źródłowymi i tworzący raport końcowy
+The core architectural principle is **deterministic-first**: every technical fact (numbers, names, software versions, tool output) is extracted from raw data by deterministic Python code. The language models serve a purely editorial role — they organize, describe and formulate recommendations, but never interpret numerical data themselves.
+
+This eliminates a whole class of errors caused by the documented tendency of LLMs to drop, distort or fabricate fragments of long technical output ("hallucinations"). This behavior was confirmed empirically and repeatedly during development — see [Fighting LLM hallucinations](#fighting-llm-hallucinations).
 
 ---
 
-## Wykorzystane technologie i narzędzia
+## Architecture
+
+```mermaid
+flowchart TD
+    U[User] --> UI[chat-ui / Streamlit]
+    UI --> ORC[Orchestrator<br/>FastAPI + LangGraph]
+    ORC --> TC[Tool-calling agent<br/>qwen3:14b]
+    TC --> D{Task type?}
+    D -->|local network| PA[pentest-agent / Kali<br/>nmap, nikto, sqlmap, nuclei...]
+    D -->|host diagnostics| AA[admin-agent / systemd<br/>firewall, fail2ban, lynis, docker...]
+    D -->|malware / reputation| RE[RE pipeline<br/>yara, binwalk, ssdeep, readelf...]
+    PA --> EV[Evidence / Findings layer<br/>~20 deterministic parsers]
+    AA --> EV
+    RE --> EV
+    EV --> DRAFT[3x drafter<br/>qwen2.5-coder:14b / Bielik-11B / qwen2.5:14b]
+    DRAFT --> CRITIC[Critic<br/>qwen2.5:14b<br/>cross-checks drafts against source data]
+    CRITIC --> REP[Final report]
+    REP --> UI
+```
+
+**Components:**
+- **chat-ui (Streamlit)** — chat panel, tool/mode selection (audit / pentest), findings panel
+- **Orchestrator (FastAPI + LangGraph)** — flow logic, ~20 deterministic data parsers, prompt building, cascaded model pipeline
+- **pentest-agent** — runs offensive tools in an isolated environment, with a central tool registry and target validation (allowlist)
+- **admin-agent** — host-side system service, diagnostics via a restricted (whitelisted) set of `sudo` commands
+- **Evidence/Findings layer** — data model and persistent store for findings, full lifecycle: detection → validation → risk assessment → retest
+- **Internal Sensor** — passive discovery of hosts on the local network
+
+**Cascaded model pipeline:** 1 tool-calling agent (qwen3:14b) → 3 independent drafters writing report drafts in parallel → 1 critic model comparing drafts against source data and producing the final report.
+
+---
+
+## Fighting LLM hallucinations
+
+During development, several independent, reproducible categories of LLM generation errors were empirically confirmed and solved when processing long, technical tool output:
+
+1. **Data loss when transcribing firewall rules** — the model dropped/grouped entries despite explicit prompt instructions. *Solution:* deterministic parser + automatic completeness check in the critic layer.
+2. **Data loss when transcribing system audit output (Lynis)** — same problem across dozens of warning/suggestion entries. *Solution:* same mechanism as for the firewall.
+3. **Incorrect counting of executed tool calls** — the model reported a different number than actually ran. *Solution:* deterministic counter injected as a non-negotiable fact.
+4. **Model generating text that looked like a tool call without actually executing it** — leading to a fully fabricated report about a critical vulnerability. *Solution:* pattern detection + hard block on describing results without a real tool execution.
+5. **Skipping entire sections in multi-part audits** plus unexpected switching of the report language to English. *Solution:* deterministic section checklist.
+6. **Fabricating non-existent execution errors** (HTTP codes, timeouts) despite a correct status field in the source data. *Solution:* deterministic execution-status parser.
+
+Each case was observed on real data, documented in the source code, and addressed through the deterministic-first principle — not by further prompt tweaking.
+
+---
+
+## Tech stack
 
 - **Backend:** Python 3.11, FastAPI, Pydantic
-- **Orkiestracja LLM:** LangGraph, LangChain (langchain-ollama)
--- **Modele językowe (Ollama, lokalnie):** qwen3:14b (agent narzędziowy), qwen2.5-coder:14b i Bielik-11B-v3.0-instruct:Q5_K_M (szkicownicy raportu), qwen2.5:14b (dodatkowy szkicownik + model-recenzent/critic)
-- **Infrastruktura:** Docker, Docker Compose
-- **Frontend:** własny (HTML / CSS / JavaScript)
-- **Narzędzia ofensywne:** sqlmap, gobuster, ffuf, nikto, enum4linux, nmap, hydra, wafw00f, whatweb, nuclei, searchsploit, testssl.sh
-- **Diagnostyka hosta:** ufw, fail2ban, systemd, Lynis, Wazuh, Suricata
-- **Reverse engineering / analiza artefaktów:** ssdeep (fuzzy hashing), YARA, binwalk, binutils (readelf/nm/objdump)
+- **LLM orchestration:** LangGraph, LangChain (langchain-ollama)
+- **Models (Ollama, local):** qwen3:14b (tool-calling agent), qwen2.5-coder:14b + Bielik-11B-v3.0-instruct:Q5_K_M + qwen2.5:14b (report drafters), qwen2.5:14b (critic/reviewer)
+- **Infrastructure:** Docker, Docker Compose
+- **Frontend:** Streamlit
+- **Offensive tools:** sqlmap, gobuster, ffuf, nikto, enum4linux, nmap, hydra, wafw00f, whatweb, nuclei, searchsploit, testssl.sh
+- **Host diagnostics:** ufw, fail2ban, systemd, Lynis, Wazuh, Suricata
+- **RE / artifact analysis:** ssdeep (fuzzy hashing), YARA, binwalk, binutils (readelf/nm/objdump)
 - **SAST:** Semgrep
-- **Zewnętrzne źródła danych:** MalwareBazaar (abuse.ch)
-- **Magazyn danych:** JSON Lines, model danych Pydantic (RawResult, Observation, Evidence, Finding, Validation, RiskAssessment, RetestResult, Asset, Artifact)
-- **Diagramy:** Mermaid, draw.io
+- **External data:** MalwareBazaar (abuse.ch)
+- **Storage:** file-based JSON artifacts per run + SQLite (users/sessions); Pydantic data model (RawResult, Observation, Evidence, Finding, Validation, RiskAssessment, RetestResult, Asset, Artifact)
 
 ---
 
-## Walka z halucynacjami LLM
+## Running
 
-W trakcie rozwoju projektu empirycznie potwierdzono i rozwiązano kilka niezależnych, powtarzalnych kategorii błędów generowania tekstu przez modele językowe przy przetwarzaniu długich, technicznych wyników narzędzi:
-
-1. **Utrata danych przy transkrypcji reguł zapory sieciowej (firewall)** — model gubił/grupował pozycje mimo jawnej instrukcji w prompcie. *Rozwiązanie:* deterministyczny parser + automatyczna weryfikacja kompletności w warstwie recenzenta.
-2. **Utrata danych przy transkrypcji wyniku audytu systemowego (Lynis)** — analogiczny problem przy dziesiątkach pozycji ostrzeżeń/sugestii. *Rozwiązanie:* analogiczny mechanizm jak dla firewalla.
-3. **Błędne zliczanie liczby wykonanych wywołań narzędzi** — model deklarował inną liczbę niż faktyczna. *Rozwiązanie:* deterministyczny licznik wstrzykiwany jako niepodważalny fakt.
-4. **Model generujący tekst wyglądający jak wywołanie narzędzia, bez faktycznego wykonania** — prowadzące do w pełni zmyślonego raportu o krytycznej podatności. *Rozwiązanie:* wykrywanie wzorca + twarda blokada opisu wyników bez faktycznego wykonania narzędzia.
-5. **Pomijanie całych sekcji przy audycie wieloczęściowym** oraz nieoczekiwane przełączenie języka raportu na angielski. *Rozwiązanie:* deterministyczna lista kontrolna sekcji.
-6. **Zmyślanie nieistniejących błędów wykonania** (kody HTTP, przekroczenie limitu czasu) mimo poprawnego pola statusu w danych źródłowych. *Rozwiązanie:* deterministyczny parser statusu wykonania.
-
-Każdy z powyższych przypadków został zaobserwowany na rzeczywistych danych, udokumentowany w kodzie źródłowym i zaadresowany przez zasadę „deterministic-first” — nie przez dalsze poprawianie treści promptu.
-
----
-
-## Znane ograniczenia i dalsze prace
-
-Poniższa lista pochodzi ze szczegółowego przeglądu kodu źródłowego pod kątem gotowości do wdrożenia komercyjnego. Pełny opis każdego punktu (uzasadnienie, rekomendacja) dostępny w wewnętrznym rejestrze projektu.
-
-| # | Obszar | Priorytet |
-|---|---|---|
-| 1 | Zakres działania (scope) skonfigurowany na sztywno pod środowisko testowe | Wysoki |
-| 2 | Tylko 2 z ok. 15 narzędzi zasilają silnik Findings | Wysoki |
-| 5 | Brak izolacji danych per klient/tenant | Wysoki |
-| 6 | Brak szyfrowania danych at-rest | Wysoki |
-| 7 | Brak polityki retencji danych | Wysoki |
-| 13 | Migawki danych chroniące przed utratą przy kompresji — tylko dla 4/23 typów danych | Wysoki |
-| 14 | Automatyczna weryfikacja kompletności raportu — tylko dla 2/23 typów danych | Wysoki |
-| 17 | Stan pipeline'u trzymany wyłącznie w pamięci procesu (brak trwałego checkpointera) | Wysoki |
-| 24 | Brak automatycznego odświeżania bazy sygnatur zagrożeń | Wysoki |
-| 26 | Konfiguracja wdrożeniowa (TLS, sekrety, limity zasobów) — do weryfikacji | Wysoki |
-| 3, 4, 8, 11, 12, 15, 22, 23 | Pomniejsze usprawnienia (mechanizm retest, indeksowanie magazynu danych, blokady współbieżności, przekazywanie sesji, zależność sprzętowa, krucha łatka wersji oprogramowania, konfiguracja narzędzi ograniczonych, wydajność parsowania) | Średni |
-| 9, 16, 18, 19, 20, 21, 25 | Porządki kodu, spójność dokumentacji, drobne uproszczenia modelu ryzyka | Niski |
-
----
-
-## Jak uruchomić
-
-```bash
-git clone <adres-repo>
-cd cybersec-agent
-cp .env.example .env   # uzupełnić tokeny (PENTEST_AGENT_TOKEN, ADMIN_AGENT_TOKEN)
+```
+git clone https://github.com/s40914/Cybersec-agent.git
+cd Cybersec-agent
+cp .env.example .env   # fill in tokens (PENTEST_AGENT_TOKEN, ADMIN_AGENT_TOKEN)
 docker compose up -d --build
 ```
 
-Wymagania:
+**Requirements:**
 - Docker + Docker Compose
-- Lokalny serwer Ollama z pobranymi modelami (patrz sekcja *Technologie*)
-- Osobno skonfigurowana usługa `admin-agent` na hoście (systemd) — diagnostyka hosta wymaga uprawnień `sudo` do wybranych, whitelistowanych poleceń
-
-Szczegółowa instrukcja konfiguracji usługi `admin-agent` (whitelist sudoers, token API, izolacja sieciowa) — patrz `docs/`.
+- Local Ollama server with the models listed above
+- A separately configured `admin-agent` host service (systemd) — host diagnostics require `sudo` access to a whitelisted set of commands
 
 ---
 
-## Autor
+## Known limitations & roadmap
+
+This is a portfolio/development project, not production-ready. Key items on the roadmap (from an internal code review for production-readiness): per-tenant data isolation, encryption at rest, data retention policy, wiring all tools into the Findings engine (currently a subset), persistent pipeline checkpointing, and deployment hardening (TLS, secrets, resource limits).
+
+---
+
+## Author
 
 Michał Budyńczuk
