@@ -72,12 +72,26 @@ Każdy z powyższych przypadków został zaobserwowany na rzeczywistych danych, 
 - **Modele (Ollama, lokalnie):** qwen3:14b (agent narzędziowy / tool-calling), qwen2.5-coder:14b + Bielik-11B-v3.0-instruct:Q5_K_M + qwen2.5:14b (szkicownicy raportu), qwen2.5:14b (recenzent / critic)
 - **Infrastruktura:** Docker, Docker Compose
 - **Frontend:** Streamlit
-- **Narzędzia ofensywne:** sqlmap, gobuster, ffuf, nikto, enum4linux, nmap, hydra, wafw00f, whatweb, nuclei, searchsploit, testssl.sh
+- **Narzędzia ofensywne:** sqlmap, gobuster, ffuf, nikto, enum4linux, nmap, hydra, wafw00f, whatweb, nuclei, searchsploit, testssl.sh, web_login
 - **Diagnostyka hosta:** ufw, fail2ban, systemd, Lynis, Wazuh, Suricata
 - **Reverse engineering / analiza artefaktów:** ssdeep (fuzzy hashing), YARA, binwalk, binutils (readelf/nm/objdump)
 - **SAST:** Semgrep
 - **Zewnętrzne źródła danych:** MalwareBazaar (abuse.ch)
 - **Magazyn danych:** plikowe artefakty JSON per uruchomienie + SQLite (użytkownicy/sesje); model danych Pydantic (RawResult, Observation, Evidence, Finding, Validation, RiskAssessment, RetestResult, Asset, Artifact)
+
+---
+
+## Testy
+
+Zestaw regresyjny w katalogu `regression_tests/` uruchamia pipeline na ustalonych scenariuszach i zapisuje każdy przebieg jako JSON, dzięki czemu wynik można porównywać między zmianami:
+
+- **Wersjonowane przypadki testowe** (`regression_tests/cases/*.yaml`) — skan portów na localhoście, detekcja skanu stealth i ekspozycji firewalla, fingerprinting webowy na DVWA oraz pełne audyty hosta (SSH, fail2ban, aktualizacje, użytkownicy).
+- **Zapisane przebiegi** (`regression_tests/results/*.json`) — zachowana historia wyników pipeline'u.
+- **Walidacja end-to-end** na celowo podatnych celach: OWASP Juice Shop, DVWA i maszyny „easy" z HackTheBox.
+
+```
+python regression_tests/run_tests.py
+```
 
 ---
 

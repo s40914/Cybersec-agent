@@ -72,12 +72,26 @@ Each case was observed on real data, documented in the source code, and addresse
 - **Models (Ollama, local):** qwen3:14b (tool-calling agent), qwen2.5-coder:14b + Bielik-11B-v3.0-instruct:Q5_K_M + qwen2.5:14b (report drafters), qwen2.5:14b (critic/reviewer)
 - **Infrastructure:** Docker, Docker Compose
 - **Frontend:** Streamlit
-- **Offensive tools:** sqlmap, gobuster, ffuf, nikto, enum4linux, nmap, hydra, wafw00f, whatweb, nuclei, searchsploit, testssl.sh
+- **Offensive tools:** sqlmap, gobuster, ffuf, nikto, enum4linux, nmap, hydra, wafw00f, whatweb, nuclei, searchsploit, testssl.sh, web_login
 - **Host diagnostics:** ufw, fail2ban, systemd, Lynis, Wazuh, Suricata
 - **RE / artifact analysis:** ssdeep (fuzzy hashing), YARA, binwalk, binutils (readelf/nm/objdump)
 - **SAST:** Semgrep
 - **External data:** MalwareBazaar (abuse.ch)
 - **Storage:** file-based JSON artifacts per run + SQLite (users/sessions); Pydantic data model (RawResult, Observation, Evidence, Finding, Validation, RiskAssessment, RetestResult, Asset, Artifact)
+
+---
+
+## Testing
+
+A regression suite under `regression_tests/` runs the pipeline against fixed scenarios and stores each run as JSON, so output can be compared across changes:
+
+- **Versioned test cases** (`regression_tests/cases/*.yaml`) — port scan on localhost, stealth-scan and firewall-exposure detection, web fingerprinting against DVWA, and full host audits (SSH, fail2ban, updates, users).
+- **Recorded runs** (`regression_tests/results/*.json`) — a kept history of pipeline output.
+- **End-to-end validation** against deliberately vulnerable targets: OWASP Juice Shop, DVWA and HackTheBox "easy" machines.
+
+```
+python regression_tests/run_tests.py
+```
 
 ---
 
