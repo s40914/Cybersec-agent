@@ -18,6 +18,44 @@ This eliminates a whole class of errors caused by the documented tendency of LLM
 
 ---
 
+## Demo
+
+> Screenshots from a live run on the author's self-hosted server (the machine it runs on is described under [Running](#running)).
+
+**1. Ready state — pick tools on the left, or just describe the target in plain language.**
+
+![Cybersec Agent UI — ready state](docs/ui-ready.png)
+
+**2. Full pipeline run — five models, finished report.**
+
+The cascade runs left to right (qwen3:14b → qwen2.5-coder:14b → Bielik-11B → qwen2.5:14b → qwen2.5:14b) and produces a structured report.
+
+![Cybersec Agent UI — generated report](docs/ui-report.png)
+
+One detail worth calling out: when a tool genuinely fails, the report **records the failure** instead of inventing a result. In this run `check_firewall` was blocked by `sudo` (the command was not on the agent's allowlist), while `check_fail2ban` returned a real status:
+
+```
+check_firewall
+  Status:  execution error
+  Error:   sudo: command not permitted for adminagent
+  Result:  no firewall data — the tool was blocked
+
+check_fail2ban
+  Status:         active
+  Banned IPs:     0
+  Failed logins:  0
+```
+
+That is the deterministic-first principle in practice — see [Fighting LLM hallucinations](#fighting-llm-hallucinations).
+
+**3. It really runs — infrastructure under load.**
+
+Orchestrator and pentest-agent talking over HTTP, a 14B model served on the GPU via Ollama, with Suricata and Wazuh running alongside on the host.
+
+![Infrastructure under load — GPU, containers, Suricata, Wazuh](docs/infra.png)
+
+---
+
 ## Architecture
 
 ```mermaid
@@ -97,6 +135,8 @@ python regression_tests/run_tests.py
 
 ## Running
 
+This is a multi-service, self-hosted system — **not a one-command demo**. It expects a capable GPU host, locally served models, and a separately provisioned host agent. The snippet below is how it is deployed, not a laptop quickstart.
+
 ```
 git clone https://github.com/s40914/Cybersec-agent.git
 cd Cybersec-agent
@@ -104,10 +144,13 @@ cp .env.example .env   # fill in tokens (PENTEST_AGENT_TOKEN, ADMIN_AGENT_TOKEN)
 docker compose up -d --build
 ```
 
-**Requirements:**
-- Docker + Docker Compose
-- Local Ollama server with the models listed above
-- A separately configured `admin-agent` host service (systemd) — host diagnostics require `sudo` access to a whitelisted set of commands
+**What it actually needs:**
+- **A GPU host for the models.** Reference machine: Ryzen 7 3700X, 30 GB RAM, NVIDIA RTX 3060 12 GB. Models are served locally by Ollama; a single 14B model already uses ~9.5 GB of VRAM, so models are loaded on demand rather than all at once.
+- **Local Ollama** serving the models listed under [Tech stack](#tech-stack).
+- **The containers** — orchestrator (FastAPI/uvicorn) and pentest-agent (Kali toolbox) — come up via Docker Compose and talk over the internal network.
+- **A separately provisioned `admin-agent`** host service (systemd) that runs host diagnostics through a whitelisted set of `sudo` commands. Host-hardening checks fail by design when a command is not on that allowlist.
+
+**Not included / not production-ready:** see [Known limitations & roadmap](#known-limitations--roadmap).
 
 ---
 

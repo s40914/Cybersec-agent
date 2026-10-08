@@ -18,6 +18,44 @@ Podejście to eliminuje klasę błędów wynikającą z udokumentowanej tendencj
 
 ---
 
+## Demo
+
+> Zrzuty z działającego uruchomienia na własnym serwerze autora (sprzęt opisany w sekcji [Jak uruchomić](#jak-uruchomić)).
+
+**1. Stan gotowości — wybierz narzędzia po lewej albo po prostu opisz cel zwykłym językiem.**
+
+![Cybersec Agent — stan gotowości](docs/ui-ready.png)
+
+**2. Pełny przebieg pipeline'u — pięć modeli, gotowy raport.**
+
+Kaskada przechodzi od lewej do prawej (qwen3:14b → qwen2.5-coder:14b → Bielik-11B → qwen2.5:14b → qwen2.5:14b) i tworzy ustrukturyzowany raport.
+
+![Cybersec Agent — wygenerowany raport](docs/ui-report.png)
+
+Jeden szczegół wart podkreślenia: gdy narzędzie faktycznie się nie powiedzie, raport **odnotowuje ten błąd**, zamiast zmyślać wynik. W tym przebiegu `check_firewall` został zablokowany przez `sudo` (polecenie spoza allowlisty agenta), a `check_fail2ban` zwrócił realny status:
+
+```
+check_firewall
+  Status:  błąd wykonania
+  Błąd:    sudo: polecenie niedozwolone dla adminagent
+  Wynik:   brak danych o firewallu — narzędzie zostało zablokowane
+
+check_fail2ban
+  Status:              aktywny
+  Zbanowane IP:        0
+  Nieudane logowania:  0
+```
+
+To zasada „deterministic-first" w praktyce — patrz [Walka z halucynacjami LLM](#walka-z-halucynacjami-llm).
+
+**3. To naprawdę działa — infrastruktura pod obciążeniem.**
+
+Orchestrator i pentest-agent komunikują się po HTTP, model 14B serwowany na GPU przez Ollama, a obok na hoście działają Suricata i Wazuh.
+
+![Infrastruktura pod obciążeniem — GPU, kontenery, Suricata, Wazuh](docs/infra.png)
+
+---
+
 ## Architektura systemu
 
 ```mermaid
@@ -97,6 +135,8 @@ python regression_tests/run_tests.py
 
 ## Jak uruchomić
 
+To wielousługowy, samodzielnie hostowany system — **nie demo na jedną komendę**. Wymaga mocnego hosta z GPU, lokalnie serwowanych modeli i osobno postawionej usługi na hoście. Poniższy fragment to sposób wdrożenia, nie quickstart na laptopa.
+
 ```
 git clone https://github.com/s40914/Cybersec-agent.git
 cd Cybersec-agent
@@ -104,10 +144,13 @@ cp .env.example .env   # uzupełnić tokeny (PENTEST_AGENT_TOKEN, ADMIN_AGENT_TO
 docker compose up -d --build
 ```
 
-**Wymagania:**
-- Docker + Docker Compose
-- Lokalny serwer Ollama z pobranymi modelami (patrz sekcja *Technologie*)
-- Osobno skonfigurowana usługa `admin-agent` na hoście (systemd) — diagnostyka hosta wymaga uprawnień `sudo` do wybranych, whitelistowanych poleceń
+**Co realnie jest potrzebne:**
+- **Host z GPU na modele.** Maszyna referencyjna: Ryzen 7 3700X, 30 GB RAM, NVIDIA RTX 3060 12 GB. Modele serwuje lokalnie Ollama; pojedynczy model 14B zajmuje już ~9,5 GB VRAM, więc modele ładowane są w miarę potrzeb, nie wszystkie naraz.
+- **Lokalny Ollama** serwujący modele z sekcji [Technologie](#wykorzystane-technologie).
+- **Kontenery** — orchestrator (FastAPI/uvicorn) i pentest-agent (zestaw narzędzi Kali) — wstają przez Docker Compose i komunikują się po sieci wewnętrznej.
+- **Osobno postawiona usługa `admin-agent`** (systemd), która wykonuje diagnostykę hosta przez whitelistowany zbiór poleceń `sudo`. Testy hardeningu hosta z założenia kończą się błędem, gdy polecenie nie jest na allowliście.
+
+**Czego nie ma / nie jest produkcyjne:** patrz [Znane ograniczenia i dalsze prace](#znane-ograniczenia-i-dalsze-prace).
 
 ---
 
