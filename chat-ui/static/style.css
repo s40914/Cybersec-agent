@@ -2607,3 +2607,25 @@ body {
 @media (prefers-reduced-motion: reduce){
   .map-arc, .map-endpoint, .map-server-ring{ animation:none; }
 }
+#pulse-bar.active #pulse-stop-btn { display: inline-block !important; }
+
+#pulse-stop-btn {
+  display: none;
+  width: auto;
+  height: auto;
+  box-sizing: content-box;
+  padding: 10px 28px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  line-height: normal;
+  border: 1px solid #e05252;
+  border-radius: 6px;
+  color: #ff6b6b;
+  background: rgba(224, 82, 82, 0.1);
+  cursor: pointer;
+  white-space: nowrap;
+}
+#pulse-stop-btn:hover {
+  background: rgba(224, 82, 82, 0.2);
+}

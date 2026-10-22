@@ -25,6 +25,7 @@
   const tabPentestingBtn = document.getElementById("tab-pentesting");
   const modelsListEl = document.getElementById("models-list");
   const pulseBar = document.getElementById("pulse-bar");
+  const pulseStopBtn = document.getElementById("pulse-stop-btn");
   const pulseIdle = document.getElementById("pulse-idle");
   const pulseTrack = document.getElementById("pulse-track");
   const toolControlsEl = document.createElement("div");
@@ -490,6 +491,7 @@
 
   function resetPulse() {
     pulseBar.classList.remove("active");
+    if (pulseStopBtn) pulseStopBtn.style.display = "none";
     pulseTrack.classList.remove("show");
     document.querySelectorAll(".pulse-node").forEach((n) => n.classList.remove("active", "done", "error"));
     document.querySelectorAll(".model-dot").forEach((d) => d.classList.remove("active", "done"));
@@ -500,6 +502,7 @@
   function updatePulse(status) {
     const stage = status.stage;
     pulseBar.classList.add("active");
+    if (pulseStopBtn) pulseStopBtn.style.display = (status.stage === "done" || status.stage === "error") ? "none" : "inline-block";
     pulseTrack.classList.add("show");
 
     let currentIdx = -1;
@@ -574,6 +577,21 @@
         }
       }
     } catch (e) {}
+  }
+
+  if (pulseStopBtn) {
+    pulseStopBtn.addEventListener("click", async () => {
+      if (!threadId) return;
+      pulseStopBtn.disabled = true;
+      pulseStopBtn.textContent = "zatrzymuję…";
+      try {
+        await fetch(`/api/stop/${threadId}`, { method: "POST" });
+      } catch (e) {}
+      stopPolling();
+      resetPulse();
+      pulseStopBtn.disabled = false;
+      pulseStopBtn.textContent = "■ Zatrzymaj";
+    });
   }
 
   function startPolling() {

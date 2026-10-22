@@ -18,6 +18,7 @@ from artifact_pipeline import ArtifactPipeline
 from re_pipeline import REPipeline
 from sast_pipeline import SASTPipeline, is_source_code
 from updates_api import router as updates_router
+from artifact_findings import record_artifact_findings
 from internal_sensor import InternalSensor
 from target_scope import target_scope
 import update_malware_db
@@ -185,6 +186,7 @@ async def ingest_artifact(req: ArtifactIngestRequest):
 
         if is_source_code(artifact.file_type, artifact.filename):
             sast_result = sast_pipeline.inspect(artifact)
+            record_artifact_findings(evidence_store, artifact, sast_result, "sast")
             return {
                 "status": "ok",
                 "artifact": artifact.model_dump(mode="json"),
@@ -193,6 +195,7 @@ async def ingest_artifact(req: ArtifactIngestRequest):
             }
 
         re_result = re_pipeline.inspect(artifact)
+        record_artifact_findings(evidence_store, artifact, re_result, "re")
 
         return {
             "status": "ok",

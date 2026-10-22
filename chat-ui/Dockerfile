@@ -4,5 +4,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
 COPY static ./static
+RUN sed -i "s/app\.js?v=[0-9]*/app.js?v=$(date +%s)/" static/index.html
 EXPOSE 8501
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8501", "--timeout-keep-alive", "900"]

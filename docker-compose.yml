@@ -8,7 +8,7 @@ services:
     environment:
       ADMIN_AGENT_URL: "http://host.docker.internal:8765"
       ADMIN_AGENT_TOKEN: "${ADMIN_AGENT_TOKEN}"
-      PENTEST_AGENT_URL: "http://pentest-agent:8766"
+      PENTEST_AGENT_URL: "http://host.docker.internal:8766"
       PENTEST_AGENT_TOKEN: "${PENTEST_AGENT_TOKEN}"
       PENTEST_AGENT_TIMEOUT: "1200"
       PENTEST_ALLOW_RESTRICTED: "${PENTEST_ALLOW_RESTRICTED:-true}"
@@ -51,12 +51,9 @@ services:
       PENTEST_AGENT_TIMEOUT: "1200"
       ADMIN_AGENT_TIMEOUT: "300"
       PENTEST_AUDIT_LOG: "/var/log/pentest-agent/audit.jsonl"
-    ports:
-      - "127.0.0.1:8766:8766"
+    network_mode: "host"
     volumes:
       - ./pentest-agent-audit-logs:/var/log/pentest-agent
-    networks:
-      - ai_services_ai_net
   dvwa:
     image: vulnerables/web-dvwa
     container_name: dvwa
