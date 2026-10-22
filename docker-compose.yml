@@ -18,6 +18,7 @@ services:
       TOOL_MODEL_NAME: "qwen3:14b"
       REPORT_MODEL_NAMES: "qwen2.5-coder:14b,SpeakLeash/bielik-11b-v3.0-instruct:Q5_K_M,qwen2.5:14b"
       CRITIC_MODEL_NAME: "qwen2.5:14b"
+      ABUSECH_AUTH_KEY: "${ABUSECH_AUTH_KEY}"
     ports:
       - "127.0.0.1:8010:8010"
     extra_hosts:

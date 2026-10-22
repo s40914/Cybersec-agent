@@ -17,6 +17,7 @@ from evidence_store import EvidenceStore
 from artifact_pipeline import ArtifactPipeline
 from re_pipeline import REPipeline
 from sast_pipeline import SASTPipeline, is_source_code
+from updates_api import router as updates_router
 from internal_sensor import InternalSensor
 from target_scope import target_scope
 import update_malware_db
@@ -129,6 +130,7 @@ async def get_audit_log(session_token: str, limit: int = 100, user_email: str | 
 artifact_pipeline = ArtifactPipeline(evidence_store)
 re_pipeline = REPipeline(evidence_store)
 sast_pipeline = SASTPipeline(evidence_store)
+app.include_router(updates_router)
 
 
 class ChatRequest(BaseModel):

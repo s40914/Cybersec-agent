@@ -89,6 +89,24 @@ async def api_audit_log(session_token: str, limit: int = 100):
         return JSONResponse(content=resp.json(), status_code=resp.status_code)
 
 
+@app.get("/api/updates/status")
+async def api_updates_status():
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.get(f"{ORCHESTRATOR_URL}/updates/status")
+        return JSONResponse(content=resp.json(), status_code=resp.status_code)
+
+
+@app.post("/api/updates/refresh")
+async def api_updates_refresh(request: Request):
+    token = request.headers.get("x-session-token", "")
+    async with httpx.AsyncClient(timeout=180.0) as client:
+        resp = await client.post(
+            f"{ORCHESTRATOR_URL}/updates/refresh",
+            headers={"X-Session-Token": token},
+        )
+        return JSONResponse(content=resp.json(), status_code=resp.status_code)
+
+
 @app.post("/api/chat")
 async def api_chat(request: Request):
     body = await request.json()
