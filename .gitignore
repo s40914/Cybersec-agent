@@ -22,3 +22,4 @@ orchestrator/re_artifacts/
 orchestrator/sast_artifacts/
 data/*.db
 cookies.txt
+regression_tests/results/
