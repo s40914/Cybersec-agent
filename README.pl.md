@@ -83,6 +83,7 @@ flowchart TD
 - **admin-agent** — usługa systemowa na hoście, diagnostyka przez ograniczony (whitelistowany) dostęp do poleceń `sudo`
 - **Warstwa Evidence/Findings** — model danych i magazyn trwały dla ustaleń bezpieczeństwa, pełny cykl życia: wykrycie → walidacja → ocena ryzyka → retest
 - **Internal Sensor** — pasywne wykrywanie hostów w sieci lokalnej
+- **Upload artefaktów (RE/SAST)** — plik wgrany w panelu bocznym chat-ui jest kierowany automatycznie: kod źródłowy → SAST (Semgrep), plik binarny → pipeline RE (yara, binwalk, strings...) — uruchamiane z samego UI, bez ręcznego `curl`.
 
 **Kaskadowy potok modeli:** 1 agent tool-calling (qwen3:14b) → 3 niezależne szkicowniki piszące szkice raportu równolegle → 1 model-recenzent (*critic*) porównujący szkice z danymi źródłowymi i tworzący raport końcowy.
 
@@ -131,6 +132,10 @@ Zestaw regresyjny w katalogu `regression_tests/` uruchamia pipeline na ustalonyc
 python regression_tests/run_tests.py
 ```
 
+### Co przegapił gotowy ruleset
+
+Testując pipeline SAST, podsadzono trzy celowo podatne fragmenty kodu (iniekcję przez `eval()`, OS command injection i zahardkodowany sekret). Gotowe reguły Semgrep (`p/security-audit`, `p/owasp-top-ten`) wykryły tylko przypadek `eval()`. Dwa pozostałe braki załatano własnymi regułami w `data/semgrep_rules/` (`command_injection.yaml`, `hardcoded_secrets.yaml`), zweryfikowanymi na tych samych próbkach, aż wszystkie trzy znaleziska poprawnie trafiły do finalnego raportu. Katalog z regułami jest zamontowany jako wolumen Dockera, więc nowe reguły działają bez przebudowy kontenera.
+
 ---
 
 ## Jak uruchomić
@@ -156,7 +161,7 @@ docker compose up -d --build
 
 ## Znane ograniczenia i dalsze prace
 
-To projekt rozwojowy / portfolio, nie wersja produkcyjna. Kluczowe pozycje na mapie drogowej (z wewnętrznego przeglądu kodu pod kątem gotowości produkcyjnej): izolacja danych per klient/tenant, szyfrowanie danych at-rest, polityka retencji danych, podłączenie wszystkich narzędzi do silnika Findings (obecnie podzbiór), trwały checkpointing stanu pipeline'u oraz hardening wdrożeniowy (TLS, sekrety, limity zasobów).
+To projekt rozwojowy / portfolio, nie wersja produkcyjna. Kluczowe pozycje na mapie drogowej (z wewnętrznego przeglądu kodu pod kątem gotowości produkcyjnej): izolacja danych per klient/tenant, szyfrowanie danych at-rest, polityka retencji danych, podłączenie wszystkich narzędzi do silnika Findings (obecnie podzbiór), trwały checkpointing stanu pipeline'u oraz hardening wdrożeniowy (TLS, sekrety, limity zasobów). Znany błąd: przy celach typu HackTheBox pipeline czasem wybiera złe narzędzie, mimo że zakładka Pentesting jest wybrana explicite — zarejestrowany, przyczyna jeszcze niezdiagnozowana.
 
 ---
 

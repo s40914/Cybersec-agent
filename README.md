@@ -83,6 +83,7 @@ flowchart TD
 - **admin-agent** — host-side system service, diagnostics via a restricted (whitelisted) set of `sudo` commands
 - **Evidence/Findings layer** — data model and persistent store for findings, full lifecycle: detection → validation → risk assessment → retest
 - **Internal Sensor** — passive discovery of hosts on the local network
+- **Artifact upload (RE/SAST)** — a file dropped in the chat-ui sidebar is routed automatically: source code → SAST (Semgrep), binaries → the RE pipeline (yara, binwalk, strings...) — triggered from the UI itself, no manual `curl` needed.
 
 **Cascaded model pipeline:** 1 tool-calling agent (qwen3:14b) → 3 independent drafters writing report drafts in parallel → 1 critic model comparing drafts against source data and producing the final report.
 
@@ -131,6 +132,10 @@ A regression suite under `regression_tests/` runs the pipeline against fixed sce
 python regression_tests/run_tests.py
 ```
 
+### Catching what the official ruleset missed
+
+To stress-test the SAST pipeline, three intentionally vulnerable code samples were planted (an `eval()` injection, an OS command injection, and a hardcoded secret). Semgrep's official rulesets (`p/security-audit`, `p/owasp-top-ten`) only caught the `eval()` case. The other two gaps were closed with custom rules under `data/semgrep_rules/` (`command_injection.yaml`, `hardcoded_secrets.yaml`), verified against the same samples until all three findings surfaced correctly in the final report. The rules directory is a live Docker volume mount, so new rules take effect without rebuilding the container.
+
 ---
 
 ## Running
@@ -156,7 +161,7 @@ docker compose up -d --build
 
 ## Known limitations & roadmap
 
-This is a portfolio/development project, not production-ready. Key items on the roadmap (from an internal code review for production-readiness): per-tenant data isolation, encryption at rest, data retention policy, wiring all tools into the Findings engine (currently a subset), persistent pipeline checkpointing, and deployment hardening (TLS, secrets, resource limits).
+This is a portfolio/development project, not production-ready. Key items on the roadmap (from an internal code review for production-readiness): per-tenant data isolation, encryption at rest, data retention policy, wiring all tools into the Findings engine (currently a subset), persistent pipeline checkpointing, and deployment hardening (TLS, secrets, resource limits). Known bug: tool selection for HackTheBox-style pentest targets sometimes picks the wrong tool even when the Pentesting tab is explicitly selected — tracked, root cause not yet isolated.
 
 ---
 
