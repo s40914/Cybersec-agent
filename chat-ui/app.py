@@ -1,7 +1,7 @@
 import os
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -103,6 +103,27 @@ async def api_updates_refresh(request: Request):
         resp = await client.post(
             f"{ORCHESTRATOR_URL}/updates/refresh",
             headers={"X-Session-Token": token},
+        )
+        return JSONResponse(content=resp.json(), status_code=resp.status_code)
+
+
+@app.post("/api/artifacts/upload")
+async def api_artifacts_upload(
+    request: Request,
+    file: UploadFile = File(...),
+    thread_id: str = Form(...),
+    target: str = Form("uploaded-file"),
+):
+    token = request.headers.get("x-session-token", "")
+    raw = await file.read()
+    async with httpx.AsyncClient(timeout=180.0) as client:
+        files = {"file": (file.filename or "upload", raw, file.content_type or "application/octet-stream")}
+        data = {"thread_id": thread_id, "target": target}
+        resp = await client.post(
+            f"{ORCHESTRATOR_URL}/artifacts/upload",
+            headers={"X-Session-Token": token},
+            files=files,
+            data=data,
         )
         return JSONResponse(content=resp.json(), status_code=resp.status_code)
 

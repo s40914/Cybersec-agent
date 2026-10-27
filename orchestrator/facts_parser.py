@@ -299,7 +299,21 @@ def extract_and_format_ssh_block(raw: str) -> str:
                 if key not in ("Port", "PasswordAuthentication", "PermitRootLogin", "PubkeyAuthentication"):
                     lines.append(f"- {key}: {value}")
 
-            if str(password_auth).lower() == "yes":
+            auth_methods = str(settings.get("AuthenticationMethods", "")).lower()
+            requires_both_factors = (
+                "publickey" in auth_methods and "password" in auth_methods
+                and "," in auth_methods
+            )
+
+            if str(password_auth).lower() == "yes" and requires_both_factors:
+                lines.append(
+                    f"OCENA RYZYKA: PasswordAuthentication=yes, ALE AuthenticationMethods="
+                    f"{settings.get('AuthenticationMethods')} wymusza, ze samo haslo NIE WYSTARCZY "
+                    "do zalogowania - atakujacy musialby posiadac takze poprawny klucz prywatny. "
+                    "To jest NISKIE ryzyko ataku brute-force (dwuskladnikowe wymaganie), nie wysokie - "
+                    "nie opisuj tego jako prostej podatnosci na brute-force przez samo haslo."
+                )
+            elif str(password_auth).lower() == "yes":
                 lines.append(
                     "UWAGA RYZYKO: PasswordAuthentication=yes oznacza, ze logowanie haslem jest WLACZONE "
                     "(nie tylko klucz publiczny) - to zwieksza podatnosc na ataki brute-force, zwlaszcza "

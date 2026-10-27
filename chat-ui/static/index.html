@@ -8,8 +8,41 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=7">
 <link rel="stylesheet" href="login.css?v=1">
+<style>
+  #artifact-upload-btn,
+  #artifact-send-btn {
+    color: #ffffff !important;
+    border: 1px solid rgba(255,255,255,0.45) !important;
+    background: rgba(255,255,255,0.06) !important;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  }
+  #artifact-upload-btn:hover,
+  #artifact-send-btn:hover {
+    background: rgba(255,255,255,0.18) !important;
+    border-color: #ffffff !important;
+    cursor: pointer;
+  }
+  #artifact-send-btn {
+    background: rgba(90,200,120,0.18) !important;
+    border-color: rgba(120,220,150,0.6) !important;
+  }
+  #artifact-send-btn:hover {
+    background: rgba(90,200,120,0.32) !important;
+    border-color: rgba(120,220,150,1) !important;
+  }
+  #artifact-selected-name {
+    color: #e8e8e8 !important;
+    font-weight: 500;
+  }
+  #artifact-status {
+    color: #8fe3a0 !important;
+    font-weight: 600;
+  }
+</style>
 </head>
 <body>
 
@@ -120,6 +153,26 @@
       </div>
     </div>
 
+    <div class="side-section artifact-upload-section">
+      <div class="side-label">ANALIZA PLIKU (RE / SAST)</div>
+      <input type="file" id="artifact-file-input" style="display:none;">
+      <button type="button" id="artifact-upload-btn" class="btn-ghost" style="width:100%; text-align:left;">+ wybierz plik do analizy</button>
+      <div id="artifact-selected-name" class="ts" style="display:none; margin-top:6px; word-break:break-all;"></div>
+      <button type="button" id="artifact-send-btn" class="btn-ghost" style="display:none; width:100%; margin-top:6px;">wyślij do analizy</button>
+      <div id="artifact-status" class="ts" style="margin-top:6px;"></div>
+    </div>
+
+    <div class="side-section artifact-upload-section" id="updates-section" style="display:none;">
+      <div class="side-label">BAZY WIEDZY</div>
+      <div id="updates-info" class="tools-loading">ładowanie…</div>
+      <button type="button" id="updates-refresh-btn" class="btn-ghost" style="display:none; width:100%; text-align:left; margin-top:6px;">↻ Aktualizuj bazy zagrożeń</button>
+      <div id="updates-msg" class="tools-loading"></div>
+    </div>
+
+    <div class="side-section artifact-upload-section" id="admin-panel-trigger-section" style="display:none;">
+      <button type="button" id="admin-panel-btn" class="btn-ghost" style="width:100%; text-align:left; display:flex; align-items:center; gap:8px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg> Panel administratora (log audytowy)</button>
+    </div>
+
     <div class="side-section findings-section">
       <div class="side-label findings-section-title">
         <span>FINDINGI</span>
@@ -133,17 +186,6 @@
       <div id="findings-list" class="findings-list">
         <div class="findings-loading">ładowanie…</div>
       </div>
-    </div>
-
-    <div class="side-section" id="admin-panel-trigger-section" style="display:none;">
-      <button type="button" id="admin-panel-btn" class="btn-ghost" style="width:100%; text-align:left; display:flex; align-items:center; gap:8px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg> Panel administratora (log audytowy)</button>
-    </div>
-
-    <div class="side-section" id="updates-section" style="display:none;">
-      <div class="side-label">BAZY WIEDZY</div>
-      <div id="updates-info" class="tools-loading">ładowanie…</div>
-      <button type="button" id="updates-refresh-btn" class="btn-ghost" style="display:none; width:100%; text-align:left; margin-top:6px;">↻ Aktualizuj bazy zagrożeń</button>
-      <div id="updates-msg" class="tools-loading"></div>
     </div>
 
     <div class="side-section side-section-grow">

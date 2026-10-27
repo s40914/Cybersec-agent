@@ -99,7 +99,7 @@ html, body {
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.08em;
-  color: var(--text-dim);
+  color: var(--text);
   margin-bottom: 10px;
   font-weight: 600;
 }
@@ -122,7 +122,7 @@ html, body {
 
 .btn-ghost {
   background: none;
-  border: 1px solid var(--border);
+  border: 1px solid var(--text-dim);
   color: var(--text-muted);
   border-radius: 4px;
   width: 24px;
@@ -1211,7 +1211,7 @@ html, body {
   font-size: 10px;
   letter-spacing: 0.14em;
   font-weight: 600;
-  color: #687282;
+  color: var(--text);
 }
 
 .thread-row,
@@ -1394,7 +1394,7 @@ html, body {
 /* General controls */
 .btn-ghost {
   background: rgba(255, 255, 255, 0.018);
-  border-color: var(--border-soft);
+  border-color: var(--text-dim);
   transition:
     background 0.2s ease,
     border-color 0.2s ease,
@@ -1556,8 +1556,9 @@ body {
 
 .side-label {
   margin-bottom: 11px;
-  color: #697585;
+  color: var(--text);
   font-size: 9.5px;
+  font-weight: 600;
   letter-spacing: .18em;
 }
 
@@ -2628,4 +2629,26 @@ body {
 }
 #pulse-stop-btn:hover {
   background: rgba(224, 82, 82, 0.2);
+}
+
+
+/* ---------- Sekcja uploadu RE/SAST - wyrozniona karta ---------- */
+.artifact-upload-section {
+  border: 1px solid rgba(242, 169, 59, 0.35);
+  background: rgba(242, 169, 59, 0.07);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.artifact-upload-section .side-label {
+  color: var(--accent) !important;
+}
+
+.artifact-upload-section .btn-ghost {
+  border-color: rgba(242, 169, 59, 0.45) !important;
+}
+
+.artifact-upload-section .btn-ghost:hover {
+  border-color: var(--accent) !important;
+  background: rgba(242, 169, 59, 0.14) !important;
 }

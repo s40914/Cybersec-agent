@@ -5,8 +5,10 @@ import re
 import uuid
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
+from pathlib import Path
+from uuid import uuid4
 from pydantic import BaseModel
 
 from graph import build_app, get_model_config
@@ -165,6 +167,74 @@ class ArtifactIngestRequest(BaseModel):
     target: str
 
 
+def _run_ingest_pipeline(path: str, thread_id: str, target: str) -> dict:
+    """Wspolna logika ingestu RE/SAST, uzywana zarowno przez /artifacts/ingest
+    (plik juz na dysku) jak i /artifacts/upload (plik przeslany przez UI)."""
+    artifact = artifact_pipeline.ingest(path=path, thread_id=thread_id, target=target)
+
+    if is_source_code(artifact.file_type, artifact.filename):
+        sast_result = sast_pipeline.inspect(artifact)
+        record_artifact_findings(evidence_store, artifact, sast_result, "sast")
+        return {
+            "status": "ok",
+            "artifact": artifact.model_dump(mode="json"),
+            "pipeline_used": "sast",
+            "sast": sast_result,
+        }
+
+    re_result = re_pipeline.inspect(artifact)
+    record_artifact_findings(evidence_store, artifact, re_result, "re")
+    return {
+        "status": "ok",
+        "artifact": artifact.model_dump(mode="json"),
+        "pipeline_used": "re",
+        "re": re_result,
+    }
+
+
+@app.post("/artifacts/upload")
+async def upload_artifact(
+    file: UploadFile = File(...),
+    thread_id: str = Form(...),
+    target: str = Form("uploaded-file"),
+    x_session_token: str | None = Header(default=None),
+):
+    """
+    Przyjmuje plik binarnie (multipart/form-data) z UI, zapisuje go pod
+    losowa nazwa w data/uploads/, i uruchamia ten sam pipeline RE/SAST
+    co /artifacts/ingest. Wymaga zalogowania (session_token) - RE/SAST
+    na nieznanym pliku nie moze byc dostepne anonimowo.
+    """
+    user = auth_db.get_user_by_session(x_session_token) if x_session_token else None
+    if user is None:
+        raise HTTPException(status_code=401, detail="Wymagane logowanie.")
+
+    MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+    raw = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(raw) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Plik za duzy (limit 50 MB).")
+    if not raw:
+        raise HTTPException(status_code=400, detail="Pusty plik.")
+
+    upload_dir = Path("data/uploads")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    safe_suffix = Path(file.filename or "upload").suffix[:10]
+    safe_suffix = "".join(c for c in safe_suffix if c.isalnum() or c == ".")
+    dest_path = upload_dir / f"{uuid4().hex}{safe_suffix}"
+    dest_path.write_bytes(raw)
+    # plik NIGDY nie jest oznaczany jako wykonywalny ani uruchamiany
+
+    try:
+        return _run_ingest_pipeline(str(dest_path), thread_id, target)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Artifact upload pipeline failed")
+        raise HTTPException(status_code=500, detail=f"Upload pipeline failed: {e}")
+
+
 @app.post("/artifacts/ingest")
 async def ingest_artifact(req: ArtifactIngestRequest):
     """
@@ -178,38 +248,11 @@ async def ingest_artifact(req: ArtifactIngestRequest):
     etapy pipeline'u, wybierane automatycznie na podstawie typu pliku.
     """
     try:
-        artifact = artifact_pipeline.ingest(
-            path=req.path,
-            thread_id=req.thread_id,
-            target=req.target,
-        )
-
-        if is_source_code(artifact.file_type, artifact.filename):
-            sast_result = sast_pipeline.inspect(artifact)
-            record_artifact_findings(evidence_store, artifact, sast_result, "sast")
-            return {
-                "status": "ok",
-                "artifact": artifact.model_dump(mode="json"),
-                "pipeline_used": "sast",
-                "sast": sast_result,
-            }
-
-        re_result = re_pipeline.inspect(artifact)
-        record_artifact_findings(evidence_store, artifact, re_result, "re")
-
-        return {
-            "status": "ok",
-            "artifact": artifact.model_dump(mode="json"),
-            "pipeline_used": "re",
-            "re": re_result,
-        }
-
+        return _run_ingest_pipeline(req.path, req.thread_id, req.target)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
-
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
     except Exception as e:
         logger.exception("Artifact/RE pipeline failed")
         raise HTTPException(
@@ -494,7 +537,7 @@ def _extract_suggested_tools(final_report: str) -> list[dict]:
                     else:
                         seen_tools[name]["concerns"].append(concern)
     except Exception:
-        logger.exception(f"Błąd pobierania sugestii pentestowych dla concerns={concerny}")
+        logger.exception(f"Błąd pobierania sugestii pentestowych dla concerns={concerns}")
         return []
     return list(seen_tools.values())
 

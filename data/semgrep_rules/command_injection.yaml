@@ -1,0 +1,57 @@
+rules:
+  - id: python-os-system-string-concat
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Wywolanie os.system()/os.popen()/subprocess z komenda zbudowana przez
+      konkatenacje stringow lub f-string z potencjalnie niesanityzowanym
+      wejsciem. Moze to umozliwic wstrzykniecie dowolnych komend systemowych
+      (OS command injection). Uzyj subprocess.run() z lista argumentow
+      (bez shell=True) zamiast budowania komendy jako string.
+    metadata:
+      category: security
+      cwe: "CWE-78: OS Command Injection"
+      owasp: "A03:2021 - Injection"
+    patterns:
+      - pattern-either:
+          - pattern: os.system("..." + $VAR + "...")
+          - pattern: os.system("..." + $VAR)
+          - pattern: os.system($VAR + "...")
+          - pattern: os.system(f"...{$VAR}...")
+          - pattern: os.popen("..." + $VAR + "...")
+          - pattern: os.popen("..." + $VAR)
+          - pattern: os.popen($VAR + "...")
+          - pattern: os.popen(f"...{$VAR}...")
+
+  - id: php-exec-string-concat
+    languages: [php]
+    severity: ERROR
+    message: >-
+      Wywolanie exec()/shell_exec()/system() z komenda zbudowana przez
+      konkatenacje z potencjalnie niesanityzowanym wejsciem - OS command
+      injection.
+    metadata:
+      category: security
+      cwe: "CWE-78: OS Command Injection"
+      owasp: "A03:2021 - Injection"
+    patterns:
+      - pattern-either:
+          - pattern: exec("..." . $VAR . "...")
+          - pattern: shell_exec("..." . $VAR . "...")
+          - pattern: system("..." . $VAR . "...")
+
+  - id: js-child-process-exec-concat
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      child_process.exec() z komenda zbudowana przez konkatenacje lub
+      template literal z potencjalnie niesanityzowanym wejsciem - OS
+      command injection. Uzyj execFile()/spawn() z lista argumentow.
+    metadata:
+      category: security
+      cwe: "CWE-78: OS Command Injection"
+      owasp: "A03:2021 - Injection"
+    patterns:
+      - pattern-either:
+          - pattern: exec("..." + $VAR + "...")
+          - pattern: exec(`...${$VAR}...`)

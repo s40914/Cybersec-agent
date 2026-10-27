@@ -92,6 +92,12 @@
   const composerInput = document.getElementById("composer-input");
   const composerSend = document.getElementById("composer-send");
   const exampleSelect = document.getElementById("example-select");
+  const artifactFileInput = document.getElementById("artifact-file-input");
+  const artifactUploadBtn = document.getElementById("artifact-upload-btn");
+  const artifactSelectedName = document.getElementById("artifact-selected-name");
+  const artifactSendBtn = document.getElementById("artifact-send-btn");
+  const artifactStatusEl = document.getElementById("artifact-status");
+  let pendingArtifactFile = null;
 
   let threadId = null;
   let selectedTools = new Set();
@@ -569,7 +575,11 @@
       const status = await res.json();
       updatePulse(status);
       pollToolOutput();
-      if (status.stage === "done" || status.stage === "error") {
+      // "idle" = backend nie ma zadnego zapisu dla tego thread_id (np. po
+      // restarcie orchestratora, ktory czysci stan w pamieci) - traktujemy
+      // to jako koniec, inaczej polling leci w nieskonczonosc (bug
+      // wykryty 2026-10-27: jeden zapomniany watek odpytywany >20k razy/h).
+      if (status.stage === "done" || status.stage === "error" || status.stage === "idle") {
         stopPolling();
         if (pendingResolve) {
           pendingResolve(status);
@@ -846,6 +856,82 @@
   // ============================================================
   // FINDINGS
   // ============================================================
+
+  artifactUploadBtn.addEventListener("click", () => {
+    artifactFileInput.click();
+  });
+
+  artifactFileInput.addEventListener("change", () => {
+    const file = artifactFileInput.files && artifactFileInput.files[0];
+    if (!file) return;
+    pendingArtifactFile = file;
+    artifactSelectedName.textContent = file.name;
+    artifactSelectedName.style.display = "block";
+    artifactSendBtn.style.display = "block";
+    artifactStatusEl.textContent = "";
+  });
+
+  artifactSendBtn.addEventListener("click", uploadArtifactFile);
+
+  async function uploadArtifactFile() {
+    if (!pendingArtifactFile) return;
+
+    // threadId powinien juz istniec (ustawiany przy starcie sesji), ale na
+    // wszelki wypadek nie wysylamy pliku bez przypisanego wątku - inaczej
+    // wynik trafi do watku "null" i zgubimy go w raporcie.
+    if (!threadId) {
+      artifactStatusEl.textContent = "Błąd: brak aktywnej sesji. Odśwież stronę.";
+      return;
+    }
+
+    artifactSendBtn.disabled = true;
+    artifactUploadBtn.disabled = true;
+    artifactStatusEl.textContent = "Wysyłanie i analiza (RE/SAST)…";
+
+    try {
+      const formData = new FormData();
+      formData.append("file", pendingArtifactFile);
+      formData.append("thread_id", threadId);
+      formData.append("target", lastTargetGuess || pendingArtifactFile.name);
+
+      const token = window.getSessionToken ? window.getSessionToken() : null;
+
+      const res = await fetch("/api/artifacts/upload", {
+        method: "POST",
+        headers: token ? { "X-Session-Token": token } : {},
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        artifactStatusEl.textContent = `Błąd: ${data.detail || "nieznany błąd analizy pliku"}`;
+        return;
+      }
+
+      artifactStatusEl.textContent =
+        `OK — przeanalizowano jako ${data.pipeline_used === "sast" ? "kod źródłowy (SAST)" : "plik binarny (RE)"}.`;
+
+      // Resetujemy formularz uploadu, ale NIE threadId - wynik ma trafic do
+      // tej samej, biezacej rozmowy.
+      pendingArtifactFile = null;
+      artifactFileInput.value = "";
+      artifactSelectedName.style.display = "none";
+      artifactSendBtn.style.display = "none";
+
+      // Doklejamy wynik do raportu w tym samym wątku - prosimy model o
+      // podsumowanie tego, co wlasnie zostalo zdeterministycznie
+      // zustalone (fakty juz sa w evidence_store, model tylko je opisuje).
+      sendMessage(
+        `Przeanalizowano przesłany plik "${data.artifact.filename}" ` +
+        `(pipeline: ${data.pipeline_used}). Podsumuj wyniki tej analizy w raporcie.`
+      );
+    } catch (err) {
+      artifactStatusEl.textContent = `Błąd sieci: ${err}`;
+    } finally {
+      artifactSendBtn.disabled = false;
+      artifactUploadBtn.disabled = false;
+    }
+  }
 
   const findingsListEl = document.getElementById("findings-list");
   const findingsSummaryEl = document.getElementById("findings-summary");
